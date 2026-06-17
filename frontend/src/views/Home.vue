@@ -75,8 +75,8 @@ const initMap = async () => {
           type: 'map',
           map: 'china',
           roam: true,
-          zoom: 1.3,
-          top: '5%',
+          top: '15%',
+          left: 'center',
           selectedMode: false,
           label: {
             show: true,
@@ -111,10 +111,50 @@ const initMap = async () => {
               borderWidth: 2
             },
             label: {
-              show: true,
+              show: p.name !== '香港' && p.name !== '澳门' && p.name !== '北京' && p.name !== '天津' && p.name !== '上海',
               color: '#000'
             }
-          }))
+          })),
+          markLine: {
+            symbol: ['none', 'none'],
+            silent: true,
+            lineStyle: {
+              color: '#000',
+              width: 1.5
+            },
+            label: {
+              show: true,
+              position: 'end',
+              fontSize: 11,
+              color: '#000',
+              fontWeight: 'bold',
+              formatter: (params: any) => {
+                return params.data.name || ''
+              }
+            },
+            data: [
+              [
+                { coord: [116.4, 39.9] },
+                { name: '北京市', coord: [132, 39] }
+              ],
+              [
+                { coord: [117.2, 39.1] },
+                { name: '天津市', coord: [132, 37] }
+              ],
+              [
+                { coord: [121.5, 31.2] },
+                { name: '上海市', coord: [132, 34] }
+              ],
+              [
+                { coord: [114.17, 22.28] },
+                { name: '香港特别行政区', coord: [132, 24] }
+              ],
+              [
+                { coord: [113.55, 22.20] },
+                { name: '澳门特别行政区', coord: [132, 21] }
+              ]
+            ]
+          }
         }
       ]
     }
@@ -296,15 +336,15 @@ onUnmounted(() => {
 }
 
 .map-wrapper {
-  max-width: 1000px;
-  width: 66.67%;
+  max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
   padding: 0 20px;
   position: relative;
 }
 
 #map-container {
-  height: 520px;
+  height: 680px;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }

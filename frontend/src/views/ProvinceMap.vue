@@ -108,6 +108,9 @@ const initMap = () => {
           value: checkedCities.value.includes(c.id) ? 1 : 0,
           itemStyle: {
             areaColor: checkedCities.value.includes(c.id) ? '#87CEEB' : '#ffffff'
+          },
+          label: {
+            show: c.name !== provinceName
           }
         }))
       }
