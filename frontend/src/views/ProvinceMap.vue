@@ -156,6 +156,8 @@ const handleCityClick = (city: any) => {
 // 监听弹窗关闭，重新调整地图大小
 watch(showNoteModal, (newVal) => {
   if (!newVal) {
+    // 清空预览照片
+    pendingImages.value = [];
     setTimeout(() => {
       mapChart.value?.resize();
     }, 350);
@@ -194,12 +196,25 @@ const handleCheckin = async () => {
 
 const handleUncheckin = async () => {
   if (!selectedCity.value) return;
+
+  // Ask user whether to delete note and images
+  const shouldDeleteNote = confirm('是否将该打卡地点的备注信息与照片一并删除？');
+
   try {
     const checkinsRes = await axios.get('/api/v1/checkins');
     const checkin = checkinsRes.data.data.find((c: any) => c.cityId === selectedCity.value.id);
     if (checkin) {
       await axios.delete(`/api/v1/checkins/${checkin.id}`);
       checkedCities.value = checkedCities.value.filter(id => id !== selectedCity.value.id);
+
+      // If user chose to delete note and images
+      if (shouldDeleteNote && noteId.value) {
+        await axios.delete(`/api/v1/notes/${noteId.value}`);
+        noteContent.value = '';
+        noteImages.value = [];
+        noteId.value = null;
+      }
+
       initMap();
     }
   } catch (error: any) {
@@ -254,6 +269,16 @@ const uploadImage = async (event: any) => {
   event.target.value = '';
 };
 
+// 获取图片预览URL
+const getImagePreview = (file: File) => {
+  return URL.createObjectURL(file);
+};
+
+// 移除待上传的图片
+const removePendingImage = (index: number) => {
+  pendingImages.value.splice(index, 1);
+};
+
 const confirmUploadImages = async () => {
   if (pendingImages.value.length === 0) return;
   uploadingImage.value = true;
@@ -289,16 +314,19 @@ const confirmUploadImages = async () => {
       return;
     }
 
-    for (const file of pendingImages.value) {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await axios.post(`/api/v1/images/note/${noteId.value}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      noteImages.value.push(res.data.data);
-    }
+    // Batch upload all images
+    const formData = new FormData();
+    pendingImages.value.forEach(file => {
+      formData.append('files', file);
+    });
 
-    // Clear pending list
+    const res = await axios.post(`/api/v1/images/note/${noteId.value}/batch`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+
+    noteImages.value.push(...res.data.data);
+
+    // Clear pending list to hide preview
     pendingImages.value = [];
     alert('图片上传成功');
   } catch (error: any) {
@@ -415,19 +443,33 @@ onUnmounted(() => {
 
           <!-- 上传区域 -->
           <div class="upload-section">
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              @change="uploadImage"
-              :disabled="uploadingImage"
-              class="file-input"
-            />
-            <div v-if="pendingImages.length > 0" class="pending-images">
-              <p>已选择 {{ pendingImages.length }} 张图片</p>
-              <button @click="confirmUploadImages" :disabled="uploadingImage" class="btn-confirm-upload">
-                {{ uploadingImage ? '上传中...' : '确认上传' }}
-              </button>
+            <label class="upload-btn">
+              📷 上传照片
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                @change="uploadImage"
+                :disabled="uploadingImage"
+                class="file-input-hidden"
+              />
+            </label>
+            
+            <!-- 照片预览 -->
+            <div v-if="pendingImages.length > 0" class="preview-section">
+              <h4>照片预览</h4>
+              <div class="preview-grid">
+                <div v-for="(file, index) in pendingImages" :key="index" class="preview-item">
+                  <img :src="getImagePreview(file)" :alt="file.name" />
+                  <button @click="removePendingImage(index)" class="btn-remove-preview">×</button>
+                </div>
+              </div>
+              <div class="preview-actions">
+                <p>已选择 {{ pendingImages.length }} 张图片</p>
+                <button @click="confirmUploadImages" :disabled="uploadingImage" class="btn-confirm-upload">
+                  {{ uploadingImage ? '上传中...' : '确认上传' }}
+                </button>
+              </div>
             </div>
             <span class="hint">选择多个图片，点击"确认上传"按钮统一上传</span>
           </div>
@@ -728,6 +770,98 @@ onUnmounted(() => {
   margin-top: 16px;
 }
 
+.upload-btn {
+  display: inline-block;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.upload-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.preview-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.preview-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.preview-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.btn-remove-preview {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  background: rgba(220, 53, 69, 0.9);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.btn-remove-preview:hover {
+  background: #dc3545;
+}
+
+.preview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid #dee2e6;
+}
+
+.preview-actions p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
 .pending-images {
   margin-top: 12px;
   padding: 12px;
@@ -761,13 +895,6 @@ onUnmounted(() => {
 .btn-confirm-upload:disabled {
   background: #ccc;
   cursor: not-allowed;
-}
-
-.file-input {
-  padding: 8px;
-  border: 2px dashed #ddd;
-  border-radius: 8px;
-  cursor: pointer;
 }
 
 .hint {

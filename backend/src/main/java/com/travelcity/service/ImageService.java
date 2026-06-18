@@ -41,32 +41,32 @@ public class ImageService {
     public ImageResponse uploadImage(Long noteId, MultipartFile file) throws IOException {
         Note note = noteRepository.findById(noteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Note not found"));
-        
+
         User user = userService.getCurrentUserEntity();
         if (!note.getUserId().equals(user.getId())) {
             throw new ForbiddenException("Not your note");
         }
-        
+
         String originalFilename = file.getOriginalFilename();
         String extension = "";
         if (originalFilename != null && originalFilename.contains(".")) {
             extension = originalFilename.substring(originalFilename.lastIndexOf("."));
         }
-        
+
         String newFilename = UUID.randomUUID().toString() + extension;
         Path filePath = Paths.get(uploadPath, newFilename);
-        
+
         Files.createDirectories(filePath.getParent());
         Files.copy(file.getInputStream(), filePath);
-        
+
         Image image = new Image();
         image.setNoteId(noteId);
         image.setFilePath("/uploads/" + newFilename);
         image.setFileName(originalFilename);
         image.setFileSize(file.getSize());
-        
+
         Image savedImage = imageRepository.save(image);
-        
+
         return new ImageResponse(
                 savedImage.getId(),
                 savedImage.getFilePath(),
@@ -74,6 +74,55 @@ public class ImageService {
                 savedImage.getFileSize(),
                 savedImage.getCreatedAt()
         );
+    }
+
+    @Transactional
+    public List<ImageResponse> uploadImages(Long noteId, List<MultipartFile> files) throws IOException {
+        Note note = noteRepository.findById(noteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Note not found"));
+
+        User user = userService.getCurrentUserEntity();
+        if (!note.getUserId().equals(user.getId())) {
+            throw new ForbiddenException("Not your note");
+        }
+
+        List<ImageResponse> responses = new java.util.ArrayList<>();
+
+        for (MultipartFile file : files) {
+            if (file.isEmpty()) {
+                continue;
+            }
+
+            String originalFilename = file.getOriginalFilename();
+            String extension = "";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            }
+
+            String newFilename = UUID.randomUUID().toString() + extension;
+            Path filePath = Paths.get(uploadPath, newFilename);
+
+            Files.createDirectories(filePath.getParent());
+            Files.copy(file.getInputStream(), filePath);
+
+            Image image = new Image();
+            image.setNoteId(noteId);
+            image.setFilePath("/uploads/" + newFilename);
+            image.setFileName(originalFilename);
+            image.setFileSize(file.getSize());
+
+            Image savedImage = imageRepository.save(image);
+
+            responses.add(new ImageResponse(
+                    savedImage.getId(),
+                    savedImage.getFilePath(),
+                    savedImage.getFileName(),
+                    savedImage.getFileSize(),
+                    savedImage.getCreatedAt()
+            ));
+        }
+
+        return responses;
     }
     
     @Transactional

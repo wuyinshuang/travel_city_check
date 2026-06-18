@@ -25,6 +25,14 @@ public class ImageController {
         ImageResponse response = imageService.uploadImage(noteId, file);
         return ResponseEntity.ok(ApiResponse.success("Image uploaded", response));
     }
+
+    @PostMapping("/note/{noteId}/batch")
+    public ResponseEntity<ApiResponse<List<ImageResponse>>> uploadImages(
+            @PathVariable Long noteId,
+            @RequestPart("files") List<MultipartFile> files) throws IOException {
+        List<ImageResponse> responses = imageService.uploadImages(noteId, files);
+        return ResponseEntity.ok(ApiResponse.success("Images uploaded", responses));
+    }
     
     @DeleteMapping("/{imageId}")
     public ResponseEntity<ApiResponse<Void>> deleteImage(@PathVariable Long imageId) {
