@@ -135,13 +135,13 @@ const initMap = async () => {
             if (p.name.includes('内蒙古')) {
               labelOffset = [15, 15]; // 往右下移动
             } else if (p.name.includes('甘肃')) {
-              labelOffset = [20, -10]; // 往右上移动
+              labelOffset = [0, 15]; // 往下移动
             } else if (p.name.includes('河北')) {
-              labelOffset = [-15, 0]; // 往左移动
+              labelOffset = [0, 15]; // 往下移动
             } else if (p.name.includes('陕西')) {
               labelOffset = [0, 15]; // 往下移动
             } else if (p.name.includes('重庆')) {
-              labelOffset = [0, 15]; // 往下移动
+              labelOffset = [-10, -10]; // 往左上移动
             }
             
             return {

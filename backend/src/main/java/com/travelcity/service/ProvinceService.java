@@ -80,15 +80,9 @@ public class ProvinceService {
         ObjectNode result = mapper.createObjectNode();
         result.put("type", "FeatureCollection");
         ArrayNode features = result.putArray("features");
-        try {
-            JsonNode provinceGeoJson = mapper.readTree(province.getGeojson());
-            JsonNode provinceFeatures = provinceGeoJson.get("features");
-            if (provinceFeatures != null && provinceFeatures.isArray()) {
-                for (JsonNode feature : provinceFeatures) {
-                    features.add(feature);
-                }
-            }
-        } catch (Exception e) { }
+        
+        // 只添加城市的GeoJSON，不添加省份的GeoJSON
+        // 这样省份地图上就不会显示省份名称
         for (City city : cities) {
             try {
                 JsonNode cityGeoJson = mapper.readTree(city.getGeojson());
