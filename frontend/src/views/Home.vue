@@ -32,7 +32,7 @@ const initMap = async () => {
     // 检查是否有缓存的GeoJSON数据
     const cachedGeoJson = localStorage.getItem('chinaGeoJson')
     const cacheTime = localStorage.getItem('chinaGeoJsonTime')
-    const CACHE_DURATION = 24 * 60 * 60 * 1000 // 24小时缓存
+    const CACHE_DURATION = 7 * 24 * 60 * 60 * 1000 // 7天缓存
     
     let chinaGeoJson = null
     
@@ -68,8 +68,14 @@ const initMap = async () => {
       chinaGeoJson = typeof geoJsonRes.data === 'string' ? JSON.parse(geoJsonRes.data) : geoJsonRes.data
       echarts.registerMap('china', chinaGeoJson)
       // 缓存GeoJSON数据
-      localStorage.setItem('chinaGeoJson', JSON.stringify(chinaGeoJson))
-      localStorage.setItem('chinaGeoJsonTime', Date.now().toString())
+      try {
+        localStorage.setItem('chinaGeoJson', JSON.stringify(chinaGeoJson))
+        localStorage.setItem('chinaGeoJsonTime', Date.now().toString())
+      } catch (e) {
+        // localStorage可能已满，清除旧缓存
+        localStorage.removeItem('chinaGeoJson')
+        localStorage.removeItem('chinaGeoJsonTime')
+      }
     }
 
     provinces.value = provincesRes.data.data
@@ -135,13 +141,13 @@ const initMap = async () => {
             if (p.name.includes('内蒙古')) {
               labelOffset = [15, 15]; // 往右下移动
             } else if (p.name.includes('甘肃')) {
-              labelOffset = [0, 15]; // 往下移动
+              labelOffset = [-15, -10]; // 往左上移动
             } else if (p.name.includes('河北')) {
               labelOffset = [0, 15]; // 往下移动
             } else if (p.name.includes('陕西')) {
               labelOffset = [0, 15]; // 往下移动
             } else if (p.name.includes('重庆')) {
-              labelOffset = [-10, -10]; // 往左上移动
+              labelOffset = [0, 10]; // 往下移动
             }
             
             return {
