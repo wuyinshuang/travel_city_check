@@ -103,16 +103,32 @@ const initMap = () => {
             borderWidth: 2
           }
         },
-        data: cities.value.map(c => ({
-          name: c.name,
-          value: checkedCities.value.includes(c.id) ? 1 : 0,
-          itemStyle: {
-            areaColor: checkedCities.value.includes(c.id) ? '#87CEEB' : '#ffffff'
-          },
-          label: {
-            show: c.name !== provinceName
-          }
-        }))
+        data: cities.value
+          .filter(c => {
+            // 过滤掉省份名称（包括各种可能的格式）
+            const provinceNames = [
+              provinceName.value,
+              provinceName.value.replace('省', ''),
+              provinceName.value.replace('自治区', ''),
+              provinceName.value.replace('特别行政区', ''),
+              provinceName.value.replace('维吾尔', ''),
+              provinceName.value.replace('壮族', ''),
+              provinceName.value.replace('回族', '')
+            ];
+            return !provinceNames.some(name => c.name === name || c.name.includes(name));
+          })
+          .map(c => ({
+            name: c.name,
+            value: checkedCities.value.includes(c.id) ? 1 : 0,
+            itemStyle: {
+              areaColor: checkedCities.value.includes(c.id) ? '#87CEEB' : '#ffffff'
+            },
+            label: {
+              show: true,
+              color: '#333',
+              fontSize: 10
+            }
+          }))
       }
     ]
   };
@@ -131,7 +147,20 @@ const handleCityClick = (city: any) => {
   selectedCity.value = city;
   showNoteModal.value = true;
   loadCityNote(city.id);
+  // 弹窗打开后重新调整地图大小
+  setTimeout(() => {
+    mapChart.value?.resize();
+  }, 350);
 };
+
+// 监听弹窗关闭，重新调整地图大小
+watch(showNoteModal, (newVal) => {
+  if (!newVal) {
+    setTimeout(() => {
+      mapChart.value?.resize();
+    }, 350);
+  }
+});
 
 const loadCityNote = async (cityId: number) => {
   try {
@@ -317,7 +346,7 @@ onUnmounted(() => {
   <div class="province-container">
     <header class="header">
       <div class="header-content">
-        <button @click="goBack" class="btn-back">← 返回</button>
+        <button @click="goBack" class="btn-back">返回</button>
         <h1>{{ provinceName }} - 城市打卡</h1>
         <div class="legend">
           <span class="legend-item">
@@ -330,7 +359,7 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <div class="map-wrapper">
+    <div class="map-wrapper" :class="{ 'with-modal': showNoteModal }">
       <div v-if="loading" class="loading">加载中...</div>
       <div id="province-map"></div>
     </div>
@@ -375,7 +404,7 @@ onUnmounted(() => {
             <h3>📷 打卡照片</h3>
             <div v-if="noteImages.length > 0" class="images-grid">
               <div v-for="image in noteImages" :key="image.id" class="image-item">
-                <img :src="image.filePath" :alt="image.fileName" />
+                <img :src="`/travel-city-checkin${image.filePath}`" :alt="image.fileName" />
                 <button @click="deleteImage(image.id)" class="btn-delete-image">删除</button>
               </div>
             </div>
@@ -479,6 +508,12 @@ onUnmounted(() => {
   max-width: 1400px;
   margin: 20px auto;
   position: relative;
+  transition: all 0.3s ease;
+}
+
+.map-wrapper.with-modal {
+  max-width: 75%;
+  margin: 20px 0 20px 20px;
 }
 
 #province-map {
@@ -502,20 +537,23 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.3);
   display: flex;
-  justify-content: center;
-  align-items: center;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 80px 20px 20px 20px;
   z-index: 1000;
 }
 
 .modal-content {
   background: white;
   border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
+  width: 28%;
+  min-width: 320px;
+  max-width: 400px;
+  max-height: calc(100vh - 100px);
   overflow-y: auto;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
 }
 
 .modal-header {
@@ -640,19 +678,26 @@ onUnmounted(() => {
 
 .images-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
 }
 
 .image-item {
   position: relative;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .image-item img {
   width: 100%;
-  height: 100px;
-  object-fit: cover;
-  border-radius: 8px;
+  height: auto;
+  min-height: 120px;
+  max-height: 200px;
+  object-fit: contain;
+  display: block;
+  background: #f8f9fa;
 }
 
 .btn-delete-image {

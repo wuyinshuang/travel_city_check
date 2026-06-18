@@ -33,13 +33,22 @@ const router = createRouter({
   ]
 })
 
-router.beforeEach((to, _from, next) => {
+let authChecked = false
+
+router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore()
+  
+  // 只在首次导航时检查认证状态
+  if (!authChecked) {
+    await userStore.checkAuth()
+    authChecked = true
+  }
+  
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   
   if (requiresAuth && !userStore.isLoggedIn) {
     next('/login')
-  } else if (!requiresAuth && userStore.isLoggedIn) {
+  } else if ((to.path === '/login' || to.path === '/register') && userStore.isLoggedIn) {
     next('/')
   } else {
     next()

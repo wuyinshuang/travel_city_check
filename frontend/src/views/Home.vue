@@ -29,17 +29,48 @@ const initMap = async () => {
   mapChart.value = echarts.init(mapContainer.value)
 
   try {
-    console.log('开始加载地图数据...')
+    // 检查是否有缓存的GeoJSON数据
+    const cachedGeoJson = localStorage.getItem('chinaGeoJson')
+    const cacheTime = localStorage.getItem('chinaGeoJsonTime')
+    const CACHE_DURATION = 24 * 60 * 60 * 1000 // 24小时缓存
     
-    const [geoJsonRes, provincesRes, checkinsRes] = await Promise.all([
-      axios.get('/api/v1/provinces/geojson'),
+    let chinaGeoJson = null
+    
+    // 如果缓存存在且未过期，使用缓存
+    if (cachedGeoJson && cacheTime && (Date.now() - parseInt(cacheTime)) < CACHE_DURATION) {
+      try {
+        chinaGeoJson = JSON.parse(cachedGeoJson)
+        echarts.registerMap('china', chinaGeoJson)
+      } catch {
+        chinaGeoJson = null
+      }
+    }
+    
+    // 并行请求所有数据
+    const requests = [
       axios.get('/api/v1/provinces'),
       axios.get('/api/v1/checkins')
-    ])
-
-    console.log('GeoJSON响应:', geoJsonRes.data)
-    console.log('省份数据:', provincesRes.data)
-    console.log('打卡数据:', checkinsRes.data)
+    ]
+    
+    // 如果没有缓存，也请求GeoJSON
+    if (!chinaGeoJson) {
+      requests.push(axios.get('/api/v1/provinces/geojson'))
+    }
+    
+    const responses = await Promise.all(requests)
+    
+    const provincesRes = responses[0]
+    const checkinsRes = responses[1]
+    
+    // 如果请求了GeoJSON，处理并缓存
+    if (responses.length > 2) {
+      const geoJsonRes = responses[2]
+      chinaGeoJson = typeof geoJsonRes.data === 'string' ? JSON.parse(geoJsonRes.data) : geoJsonRes.data
+      echarts.registerMap('china', chinaGeoJson)
+      // 缓存GeoJSON数据
+      localStorage.setItem('chinaGeoJson', JSON.stringify(chinaGeoJson))
+      localStorage.setItem('chinaGeoJsonTime', Date.now().toString())
+    }
 
     provinces.value = provincesRes.data.data
     const checkins = checkinsRes.data.data
@@ -51,14 +82,6 @@ const initMap = async () => {
       totalCheckins: checkins.length,
       provincesVisited: provinceIds.size
     }
-
-    let chinaGeoJson = geoJsonRes.data
-    if (typeof geoJsonRes.data === 'string') {
-      chinaGeoJson = JSON.parse(geoJsonRes.data)
-    }
-    console.log('解析后的GeoJSON:', chinaGeoJson)
-    
-    echarts.registerMap('china', chinaGeoJson)
 
     const option: echarts.EChartsOption = {
       tooltip: {
@@ -75,7 +98,8 @@ const initMap = async () => {
           type: 'map',
           map: 'china',
           roam: true,
-          top: '15%',
+          zoom: 1.5,
+          top: '22%',
           left: 'center',
           selectedMode: false,
           label: {
@@ -102,19 +126,39 @@ const initMap = async () => {
               borderWidth: 2
             }
           },
-          data: provinces.value.map(p => ({
-            name: p.name,
-            value: checkedProvinces.value.includes(p.id) ? 1 : 0,
-            itemStyle: {
-              areaColor: checkedProvinces.value.includes(p.id) ? '#87CEEB' : '#f0f0f0',
-              borderColor: '#000',
-              borderWidth: 2
-            },
-            label: {
-              show: p.name !== '香港' && p.name !== '澳门' && p.name !== '北京' && p.name !== '天津' && p.name !== '上海',
-              color: '#000'
+          data: provinces.value.map(p => {
+            // 使用引线的省份不显示区域内的名字
+            const useGuideLine = ['北京', '天津', '上海', '香港', '澳门'].some(name => p.name.includes(name));
+            
+            // 需要调整文字位置的省份
+            let labelOffset = [0, 0];
+            if (p.name.includes('内蒙古')) {
+              labelOffset = [15, 15]; // 往右下移动
+            } else if (p.name.includes('甘肃')) {
+              labelOffset = [20, -10]; // 往右上移动
+            } else if (p.name.includes('河北')) {
+              labelOffset = [-15, 0]; // 往左移动
+            } else if (p.name.includes('陕西')) {
+              labelOffset = [0, 15]; // 往下移动
+            } else if (p.name.includes('重庆')) {
+              labelOffset = [0, 15]; // 往下移动
             }
-          })),
+            
+            return {
+              name: p.name,
+              value: checkedProvinces.value.includes(p.id) ? 1 : 0,
+              itemStyle: {
+                areaColor: checkedProvinces.value.includes(p.id) ? '#87CEEB' : '#f0f0f0',
+                borderColor: '#000',
+                borderWidth: 2
+              },
+              label: {
+                show: !useGuideLine,
+                color: '#000',
+                offset: labelOffset
+              }
+            };
+          }),
           markLine: {
             symbol: ['none', 'none'],
             silent: true,
@@ -127,7 +171,7 @@ const initMap = async () => {
               position: 'end',
               fontSize: 11,
               color: '#000',
-              fontWeight: 'bold',
+              fontWeight: 'normal',
               formatter: (params: any) => {
                 return params.data.name || ''
               }
@@ -147,11 +191,11 @@ const initMap = async () => {
               ],
               [
                 { coord: [114.17, 22.28] },
-                { name: '香港特别行政区', coord: [132, 24] }
+                { name: '香港特别行政区', coord: [121, 17] }
               ],
               [
                 { coord: [113.55, 22.20] },
-                { name: '澳门特别行政区', coord: [132, 21] }
+                { name: '澳门特别行政区', coord: [118, 15] }
               ]
             ]
           }

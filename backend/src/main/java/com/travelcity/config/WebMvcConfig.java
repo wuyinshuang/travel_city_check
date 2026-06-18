@@ -1,5 +1,6 @@
 package com.travelcity.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.StringHttpMessageConverter;
@@ -13,10 +14,17 @@ import java.util.List;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
     
+    @Value("${app.upload.path}")
+    private String uploadPath;
+    
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/**")
                 .addResourceLocations("classpath:/static/");
+        
+        // 映射上传的图片路径
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations("file:" + uploadPath + "/");
     }
     
     @Override

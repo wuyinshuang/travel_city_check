@@ -1,4 +1,5 @@
 import paramiko
+import time
 
 host = "47.101.153.130"
 port = 22
@@ -7,31 +8,37 @@ password = "wuyinshuang@11"
 
 client = paramiko.SSHClient()
 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-client.connect(host, port, username, password)
 
-# 检查Tomcat状态
-print("检查Tomcat状态...")
-cmd = "ps aux | grep tomcat | grep -v grep"
-stdin, stdout, stderr = client.exec_command(cmd)
-print(stdout.read().decode('utf-8'))
+try:
+    print("正在连接服务器...")
+    client.connect(host, port, username, password, timeout=30)
+    print("连接成功！")
 
-# 检查端口
-print("\n检查8080端口...")
-cmd2 = "netstat -tlnp | grep 8080"
-stdin, stdout, stderr = client.exec_command(cmd2)
-print(stdout.read().decode('utf-8'))
+    # 检查Tomcat进程
+    print("\n检查Tomcat进程...")
+    cmd = "ps aux | grep tomcat | grep -v grep"
+    stdin, stdout, stderr = client.exec_command(cmd)
+    result = stdout.read().decode('utf-8', errors='ignore')
+    if result:
+        print(result)
+    else:
+        print("⚠ Tomcat进程未运行！")
 
-# 测试API
-print("\n测试API...")
-cmd3 = "curl -s 'http://localhost:8080/travel-city-checkin/api/v1/provinces/geojson' | head -c 200"
-stdin, stdout, stderr = client.exec_command(cmd3)
-result = stdout.read().decode('utf-8')
-print(result if result else "无响应")
+    # 检查端口
+    print("\n检查8080端口...")
+    cmd = "netstat -tlnp | grep 8080"
+    stdin, stdout, stderr = client.exec_command(cmd)
+    port_result = stdout.read().decode('utf-8', errors='ignore')
+    print(port_result if port_result else "端口8080未监听")
 
-# 检查文件
-print("\n检查前端文件...")
-cmd4 = "ls -la /usr/local/tomcat11/travelcity/ROOT/"
-stdin, stdout, stderr = client.exec_command(cmd4)
-print(stdout.read().decode('utf-8'))
+    # 检查Tomcat日志最后30行
+    print("\n检查Tomcat日志（最后30行）...")
+    cmd = "tail -30 /usr/local/tomcat11/logs/catalina.out"
+    stdin, stdout, stderr = client.exec_command(cmd)
+    logs = stdout.read().decode('utf-8', errors='ignore')
+    print(logs)
 
-client.close()
+except Exception as e:
+    print(f"错误: {e}")
+finally:
+    client.close()
