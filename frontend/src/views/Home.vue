@@ -141,7 +141,7 @@ const initMap = async () => {
             if (p.name.includes('内蒙古')) {
               labelOffset = [15, 15]; // 往右下移动
             } else if (p.name.includes('甘肃')) {
-              labelOffset = [-15, -10]; // 往左上移动
+              labelOffset = [-45, -25]; // 往左上移动
             } else if (p.name.includes('河北')) {
               labelOffset = [0, 15]; // 往下移动
             } else if (p.name.includes('陕西')) {
